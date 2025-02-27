@@ -1,3 +1,3 @@
 @echo off
-Call stop
+@REM Call stop
 start "" "%~dp0PlayTrack7.vbs"
