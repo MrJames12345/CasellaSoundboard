@@ -5,6 +5,8 @@ import os
 import sys
 import tkinter as tk
 import tkinter.messagebox as msgBox
+import threading
+import subprocess
 
 # Constants
 WIDTH = 400
@@ -48,6 +50,50 @@ def get_board_folders(base_path):
 
     return board_names, board_paths
 
+def play_sound_thread(sound_file):
+    """Play sound in a separate thread to avoid blocking the UI"""
+    try:
+        # Create a temporary VBS script to play the MP3 file
+        temp_vbs = os.path.join(os.environ.get('TEMP', '.'), 'play_sound.vbs')
+        with open(temp_vbs, 'w') as f:
+            f.write('Set oPlayer = CreateObject("WMPlayer.OCX")\n')
+            f.write(f'oPlayer.URL = "{sound_file}"\n')
+            f.write('oPlayer.controls.play\n')
+            f.write('While oPlayer.playState <> 1\n')
+            f.write('  WScript.Sleep 100\n')
+            f.write('Wend\n')
+            f.write('oPlayer.close\n')
+
+        # Run the VBS script without showing a window
+        subprocess.run(['wscript', '//nologo', temp_vbs],
+                      stdout=subprocess.DEVNULL,
+                      stderr=subprocess.DEVNULL)
+
+        # Clean up the temporary file
+        try:
+            os.remove(temp_vbs)
+        except:
+            pass
+    except Exception:
+        # Silently fail if there's an error playing the sound
+        pass
+
+def play_select_sound():
+    """Play the select board sound"""
+    try:
+        # Path to the sound file
+        sound_file = os.path.join(base_path, "#SelectBoardSound.mp3")
+
+        # Check if the sound file exists
+        if os.path.exists(sound_file):
+            # Play the sound in a separate thread to avoid blocking the UI
+            sound_thread = threading.Thread(target=play_sound_thread, args=(sound_file,))
+            sound_thread.daemon = True  # Thread will exit when main program exits
+            sound_thread.start()
+    except Exception:
+        # Silently fail if there's an error playing the sound
+        pass
+
 def select_board(event):
     """Handle board selection when a board is clicked"""
     # Get the selected index
@@ -64,6 +110,9 @@ def select_board(event):
     # Update the BoardNum.txt file
     with open(os.path.join(base_path, "BoardNum.txt"), 'w') as f:
         f.write(str(board_num))
+
+    # Play the select board sound
+    play_select_sound()
 
     # Show confirmation message at the bottom of the window
     status_label.config(text=f'Selected "{selected_board}"')
